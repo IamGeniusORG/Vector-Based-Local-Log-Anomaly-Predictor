@@ -1,49 +1,69 @@
-# Vector-Based Local Log Anomaly Predictor
+# 🎯 Vector-Based Local Log Anomaly Predictor
 
-This project implements a local, vector-based log anomaly predictor from scratch in Python. It is designed to act as an automated terminal log scanner that flags system outliers without relying on massive, slow external cloud APIs.
+An entirely local, machine-learning-powered terminal scanner that autonomously flags system anomalies in real-time. It uses pure mathematics (Micro-Feature Vectorization & Rolling Z-Scores) to detect outliers in log streams **without** relying on massive, slow, or expensive external Cloud APIs.
 
-## Architecture
+---
 
-The system consists of two primary scripts:
-1. **`log_generator.py`**: A dummy log generator that simulates an active system log stream, occasionally injecting anomalies (e.g., error messages, high numbers).
-2. **`anomaly_predictor.py`**: The core engine that tails the active log file, converts text patterns into micro-feature matrices, and calculates statistical variance thresholds to detect anomalies in real-time.
+## 🤔 What is this?
+Imagine you have a server generating thousands of logs per minute. Instead of paying for a cloud service to monitor these logs or manually reading them yourself, this script acts as an autonomous "Security Guard". 
 
-## Step-by-Step Logic & Math Transformation
+It silently reads your streaming logs, uses math to figure out what a "normal" log looks like, and instantly flashes a warning in your terminal the second something behaves unusually. 
 
-### 1. Live Text Stream Reader
-The predictor uses a custom generator function (`follow`) that behaves like the Unix `tail -f` command. It continuously seeks new lines appended to the log file, ensuring real-time processing as the runtime metrics stream in.
+### 🌟 Key Features
+* **100% Local & Offline**: No data leaves your machine. Perfect for secure environments or Edge/IoT devices.
+* **No Hardcoded Rules**: You don't have to tell it what an "error" is. It learns the baseline dynamically using Z-Scores.
+* **Zero Latency**: Written in pure Python using standard libraries. It processes logs the millisecond they are generated.
+* **Highly Configurable**: Easily tune the rolling window size and anomaly threshold via the command line.
 
-### 2. Mathematical Transformation (Vectorization)
-When a log line is read, it must be transformed into a numerical format that statistical algorithms can understand. This process is called "feature extraction" or "vectorization". 
-Our micro-feature matrix consists of 3 distinct dimensions (a 3D vector):
-* **Feature 1 (Text Length):** The absolute character length of the log line. Anomalous logs (like stack traces or verbose error details) often differ in length from standard operational logs.
-* **Feature 2 (Keyword Frequency):** We scan the text against a predefined set of error keywords (e.g., "error", "fail", "timeout"). The count of these words forms the second dimension.
-* **Feature 3 (Numeric Delta/Value):** System metrics often contain numbers (latency in ms, CPU %, memory usage). We parse out all numerical values using regular expressions and take the maximum value. Anomalies often present as huge spikes in these metrics.
+---
 
-*Example:*
-Log line: `"ERROR: Connection timeout after 5000ms."`
-Vector Transformation: `[41.0, 2.0, 5000.0]` -> (Length=41, Keywords=2 ("ERROR", "timeout"), Max Number=5000)
+## 🧮 How It Works (The Math Made Simple)
 
-### 3. Rolling Z-Score Calculation (Anomaly Detection)
-Instead of a simple Euclidean distance, we use a rolling Z-score calculation. This is highly effective because it naturally adapts to the shifting baseline of a running system.
+Machine learning algorithms can't read English, so we have to convert the text logs into numbers. This is called **Vectorization**.
 
-* **Rolling Window:** The system maintains a history (a `collections.deque`) of the last *N* log vectors (default: 30).
-* **Mean ($\mu$) and Standard Deviation ($\sigma$):** For every new vector that comes in, we calculate the average and the spread (standard deviation) of each feature dimension within the current window.
-* **Z-Score Calculation:** The Z-score measures how many standard deviations a data point is from the mean. 
-  $$ Z = \frac{|X - \mu|}{\sigma} $$
-  Where $X$ is the new feature value, $\mu$ is the rolling mean, and $\sigma$ is the rolling standard deviation.
-* **Thresholding:** If the Z-score for *any* feature exceeds our defined threshold (e.g., 2.5), it means the log line deviates significantly from recent normal behavior. The system immediately flags it and flashes a warning in the terminal.
+Every time a log line is generated, our script converts it into a **4-Dimensional Vector** `[Length, Keywords, Severity, Metrics]`:
 
-## How to Run & Test
+1. **Length:** The raw character length of the log. *(Errors and stack traces are usually much longer than normal heartbeat logs).*
+2. **Keywords:** The number of scary words found *(e.g., "timeout", "leak", "failure")*.
+3. **Severity:** A mapped score based on logging levels. *(`INFO` = 0, `WARNING` = 1, `ERROR` = 2, `FATAL` = 3).*
+4. **Metrics:** It dynamically extracts the largest number found in the log *(like `140MB/s` or `5831ms`)*.
 
-1. Open a terminal (Terminal 1) and start the dummy log generator. This will continuously write to `system.log`:
-   ```bash
-   python log_generator.py
-   ```
+### 💡 A Simple Example
+Let's say the system is running normally. The script watches the logs and learns that "normal" looks like this:
+> `INFO: Disk read speed 105MB/s`  👉 Vector: `[29.0, 0.0, 0.0, 105.0]`
 
-2. Open a second terminal (Terminal 2) in the same directory and start the anomaly predictor. It will begin tailing the `system.log` file:
-   ```bash
-   python anomaly_predictor.py
-   ```
+Suddenly, an anomaly occurs in the system:
+> `FATAL: Disk failure on /dev/sda1. I/O wait 5831ms` 👉 Vector: `[49.0, 2.0, 3.0, 5831.0]`
 
-3. Watch the terminal output! Terminal 1 will show you what it is generating, and Terminal 2 will silently consume normal logs but immediately flash red/yellow alerts whenever it detects an anomalous entry based on its real-time statistical baseline.
+The script compares this new vector to the recent rolling average using a **Z-Score** (Standard Deviation). Because all 4 numbers violently spike compared to the baseline, it instantly triggers an alarm!
+
+---
+
+## 🚀 Getting Started
+
+You can test this entire pipeline locally in seconds. The project comes with a Dummy Log Generator to simulate an active server.
+
+### 1. Open Terminal A (The Server)
+Run the generator to simulate a system generating normal logs with occasional anomalies:
+```bash
+python log_generator.py
+```
+
+### 2. Open Terminal B (The Predictor)
+Run the predictor to tail the logs and watch the magic happen:
+```bash
+python anomaly_predictor.py
+```
+*(Optional: You can tune the engine using arguments: `python anomaly_predictor.py --window 50 --threshold 3.0`)*
+
+---
+
+## 📸 Example Output
+When the predictor catches an anomaly, it will explicitly isolate **why** it flagged it by pointing out exactly which features deviated from the baseline:
+
+```text
+[ANOMALY DETECTED] Triggers: Length (Z=7.81), Keywords (Z=3.50), Severity (Z=3.50), Metrics (Z=463.25)
+Log Line: EXCEPTION: Null pointer dereference in module auth_service. Code 23806.
+Vector [Len, Keyw, Sev, Num]: [71.0, 1.0, 3.0, 23806.0]
+Z-Scores: [7.81, 3.50, 3.50, 463.25]
+```
