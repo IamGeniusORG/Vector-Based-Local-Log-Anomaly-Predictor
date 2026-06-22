@@ -43,15 +43,23 @@ The script compares this new vector to the recent rolling average using a **Z-Sc
 
 You can test this entire pipeline locally in seconds. The project comes with a Dummy Log Generator to simulate an active server.
 
-### 1. Open Terminal A (The Server)
-Run the generator to simulate a system generating normal logs with occasional anomalies:
+### 1. Clone the Repository
+First, download the project to your local machine and navigate into the folder:
+```bash
+git clone https://github.com/IamGeniusORG/Vector-Based-Local-Log-Anomaly-Predictor.git
+cd Vector-Based-Local-Log-Anomaly-Predictor
+```
+
+### 2. Open Terminal A (The Server)
+In your first terminal window, run the generator to simulate a system generating normal logs with occasional anomalies:
 ```bash
 python log_generator.py
 ```
 
-### 2. Open Terminal B (The Predictor)
-Run the predictor to tail the logs and watch the magic happen:
+### 3. Open Terminal B (The Predictor)
+Open a **second, completely separate terminal window**, navigate to the same folder, and run the predictor to tail the logs and watch the magic happen:
 ```bash
+cd Vector-Based-Local-Log-Anomaly-Predictor
 python anomaly_predictor.py
 ```
 *(Optional: You can tune the engine using arguments: `python anomaly_predictor.py --window 50 --threshold 3.0`)*
